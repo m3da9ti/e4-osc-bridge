@@ -15,11 +15,11 @@ osc_client = None
 
 def accelerometer_event(stream_id, timestamp, *sample):
     print("acc ", stream_id, timestamp, *sample)
-    osc_client.send_message("/e4/acc", *sample)
+    osc_client.send_message("/e4/acc", sample)
 
 def temperature_event(stream_id, timestamp, *sample):
     print("temp", stream_id, timestamp, *sample)
-    osc_client.send_message("/e4/temp", *sample)
+    osc_client.send_message("/e4/temp", sample)
 
 def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port):
     global osc_client
