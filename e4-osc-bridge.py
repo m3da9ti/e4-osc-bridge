@@ -54,6 +54,19 @@ def accelerometer_event(stream_id, timestamp, *sample):
     if event_log_file is not None:
         event_log_file.write(f"{dt:.02f},acc,{sample[0]:0.2f},{sample[1]:0.2f},{sample[2]:0.2f}\n")
 
+def bvp_event(stream_id, timestamp, *sample):
+    dt = timestamp - start_time
+    print("hr", stream_id, timestamp, *sample)
+
+    # Convert values in the range -500.0 - 500.0 to 0.0 - 1.0
+    bvp = (sample[0] + 500.0) / 1000.0
+
+    osc_client.send_message("/e4/bvp", bvp)
+
+    if event_log_file is not None:
+        event_log_file.write(f"{dt:.02f},bvp,{sample[0]:0.2f}\n")
+
+
 def temperature_event(stream_id, timestamp, *sample):
     print("temp", stream_id, timestamp, *sample)
     osc_client.send_message("/e4/temp", sample)
@@ -71,6 +84,7 @@ def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port):
 
         with e4_client.connect_to_device(devices[0]) as conn:
             conn.subscribe_to_stream(E4DataStreamID.ACC, accelerometer_event)
+            conn.subscribe_to_stream(E4DataStreamID.BVP, bvp_event)
             #conn.subscribe_to_stream(E4DataStreamID.TEMP, temperature_event)
 
             while True:
@@ -95,6 +109,8 @@ def start_replay(replay_file, osc_ip, osc_port):
             accelerometer_event(0, event_time, *sample)
         elif event_type == "temp":
             temperature_event(0, event_time, *sample)
+        elif event_type == "bvp":
+            bvp_event(0, event_time, *sample)
 
 
 if __name__ == "__main__":
