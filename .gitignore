@@ -1,4 +1,6 @@
 api-key.txt
+log*.txt
 .DS_Store
 .vscode
+.xyz
 event-log.txt

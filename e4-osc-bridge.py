@@ -6,11 +6,11 @@ import numpy as np
 from e4client import *
 from pythonosc.udp_client import SimpleUDPClient
 
-E4_IP = "127.0.0.1"
-E4_PORT = 28000
+# E4_IP = "127.0.0.1"
+# E4_PORT = 28000
 
-OSC_IP = "127.0.0.1"
-OSC_PORT = 8888
+# OSC_IP = "127.0.0.1"
+# OSC_PORT = 8888
 
 osc_client = None
 
@@ -68,24 +68,34 @@ def bvp_event(stream_id, timestamp, *sample):
 
 
 def temperature_event(stream_id, timestamp, *sample):
+    dt = timestamp - start_time
     print("temp", stream_id, timestamp, *sample)
-    osc_client.send_message("/e4/temp", sample)
+
+    # Convert values in the range -40.0 - 115.0 to 0.0 - 1.0
+    temp = (sample[0] + 40.0) / 155.0
+
+    osc_client.send_message("/e4/temp", temp)
+
+    if event_log_file is not None:
+        event_log_file.write(f"{dt:.02f},temp,{sample[0]:0.2f}\n")
+
 
 def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port):
     global osc_client
     osc_client = SimpleUDPClient(osc_ip, osc_port)
 
-    with E4StreamingClient(E4_IP, E4_PORT) as e4_client:
+    with E4StreamingClient(e4_ip, e4_port) as e4_client:
         devices = e4_client.list_connected_devices()
         print("E4 Devices:", devices)
         if len(devices) == 0:
             print("No E4 devices found.")
             sys.exit(0)
 
+        # comment out one event type at a time to log separately
         with e4_client.connect_to_device(devices[0]) as conn:
-            conn.subscribe_to_stream(E4DataStreamID.ACC, accelerometer_event)
-            conn.subscribe_to_stream(E4DataStreamID.BVP, bvp_event)
-            #conn.subscribe_to_stream(E4DataStreamID.TEMP, temperature_event)
+            #conn.subscribe_to_stream(E4DataStreamID.ACC, accelerometer_event)
+            #conn.subscribe_to_stream(E4DataStreamID.BVP, bvp_event)
+            conn.subscribe_to_stream(E4DataStreamID.TEMP, temperature_event)
 
             while True:
                 time.sleep(1)
@@ -95,17 +105,18 @@ def start_replay(replay_file, osc_ip, osc_port):
     osc_client = SimpleUDPClient(osc_ip, osc_port)
 
     log_file = open(args.log_file, "r")
-    last_time = 0
+    last_time = {}
     for line in log_file:
         line = line.strip()
         event_time, event_type, *sample = line.split(",")
         event_time = float(event_time)
         sample = [float(x) for x in sample]
 
-        time.sleep(event_time - last_time)
-        last_time = event_time
+        # print(event_time, last_time)
+        time.sleep(abs(event_time - last_time.get(event_type,0)))
+        last_time[event_type] = event_time
 
-        if event_type == "acc":
+        if event_type == "acc": 
             accelerometer_event(0, event_time, *sample)
         elif event_type == "temp":
             temperature_event(0, event_time, *sample)
@@ -118,7 +129,7 @@ if __name__ == "__main__":
     parser.add_argument('--e4-ip', type=str, help='E4 streaming server IP address', default='127.0.0.1')
     parser.add_argument('--e4-port', type=int, help='E4 streaming server port', default=28000)
     parser.add_argument('--osc-ip', type=str, help='OSC server IP address', default='127.0.0.1')
-    parser.add_argument('--osc-port', type=int, help='OSC server port', default=8888)
+    parser.add_argument('--osc-port', type=int, help='OSC server port', default=8000)
     parser.add_argument('--log-file', type=str, help='Log E4 streams to file', default=None)
     parser.add_argument('--replay', action='store_true', help='Replays an existing log file', default=False)
     args = parser.parse_args()
