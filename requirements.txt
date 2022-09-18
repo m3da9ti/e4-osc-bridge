@@ -1,0 +1,2 @@
+e4client==1.12
+python-osc==1.8.0
