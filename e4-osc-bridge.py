@@ -20,7 +20,7 @@ acc_x_buffer = np.zeros(acc_buffer_length)
 acc_y_buffer = np.zeros(acc_buffer_length)
 acc_z_buffer = np.zeros(acc_buffer_length)
 
-event_log_file = None
+record_log_file = None
 
 start_time = time.time()
 
@@ -51,8 +51,8 @@ def accelerometer_event(stream_id, timestamp, *sample):
     osc_client.send_message("/e4/acc/y", average_y)
     osc_client.send_message("/e4/acc/z", average_z)
 
-    if event_log_file is not None:
-        event_log_file.write(f"{dt:.02f},acc,{sample[0]:0.2f},{sample[1]:0.2f},{sample[2]:0.2f}\n")
+    if record_log_file is not None:
+        record_log_file.write(f"{dt:.02f},acc,{sample[0]:0.2f},{sample[1]:0.2f},{sample[2]:0.2f}\n")
 
 def bvp_event(stream_id, timestamp, *sample):
     dt = timestamp - start_time
@@ -63,8 +63,8 @@ def bvp_event(stream_id, timestamp, *sample):
 
     osc_client.send_message("/e4/bvp", bvp)
 
-    if event_log_file is not None:
-        event_log_file.write(f"{dt:.02f},bvp,{sample[0]:0.2f}\n")
+    if record_log_file is not None:
+        record_log_file.write(f"{dt:.02f},bvp,{sample[0]:0.2f}\n")
 
 
 def temperature_event(stream_id, timestamp, *sample):
@@ -76,8 +76,8 @@ def temperature_event(stream_id, timestamp, *sample):
 
     osc_client.send_message("/e4/temp", temp)
 
-    if event_log_file is not None:
-        event_log_file.write(f"{dt:.02f},temp,{sample[0]:0.2f}\n")
+    if record_log_file is not None:
+        record_log_file.write(f"{dt:.02f},temp,{sample[0]:0.2f}\n")
 
 
 def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port):
@@ -100,11 +100,11 @@ def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port):
             while True:
                 time.sleep(1)
 
-def start_replay(replay_file, osc_ip, osc_port):
+def start_replay(replay_log_file, osc_ip, osc_port):
     global osc_client
     osc_client = SimpleUDPClient(osc_ip, osc_port)
 
-    log_file = open(replay_file, "r")
+    log_file = open(replay_log_file, "r")
     last_time = 0
     # Order the timestamps in the log file
     events = []
@@ -136,19 +136,17 @@ if __name__ == "__main__":
     parser.add_argument('--e4-port', type=int, help='E4 streaming server port', default=28000)
     parser.add_argument('--osc-ip', type=str, help='OSC server IP address', default='127.0.0.1')
     parser.add_argument('--osc-port', type=int, help='OSC server port', default=8000)
-    parser.add_argument('--log-file', type=str, help='Log E4 streams to file', default=None)
-    parser.add_argument('--replay', action='store_true', help='Replays an existing log file', default=False)
+    parser.add_argument('--record', type=str, help='Log E4 streams to file', default=None)
+    parser.add_argument('--replay', type=str, help='Replays an existing log file', default=None)
     args = parser.parse_args()
-    print(args)
 
+    if args.replay and args.record:
+        print("Cannot record and replay at the same time.")
+        sys.exit(0)
     if args.replay:
-        start_replay(args.log_file, args.osc_ip, args.osc_port)
+        start_replay(args.replay, args.osc_ip, args.osc_port)
     else:
-        if args.log_file is not None:
-            event_log_file = open(args.log_file, "w")
+        if args.record is not None:
+            record_log_file = open(args.record, "w")
 
         start_streaming_client(args.e4_ip, args.e4_port, args.osc_ip, args.osc_port)
-    
-
-
-
