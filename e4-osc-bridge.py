@@ -91,6 +91,7 @@ def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port):
             print("No E4 devices found.")
             sys.exit(0)
 
+        # comment out one event type at a time to log separately
         with e4_client.connect_to_device(devices[0]) as conn:
             #conn.subscribe_to_stream(E4DataStreamID.ACC, accelerometer_event)
             #conn.subscribe_to_stream(E4DataStreamID.BVP, bvp_event)
@@ -115,7 +116,7 @@ def start_replay(replay_file, osc_ip, osc_port):
         time.sleep(abs(event_time - last_time.get(event_type,0)))
         last_time[event_type] = event_time
 
-        if event_type == "acc":
+        if event_type == "acc": 
             accelerometer_event(0, event_time, *sample)
         elif event_type == "temp":
             temperature_event(0, event_time, *sample)
