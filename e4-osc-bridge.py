@@ -104,19 +104,25 @@ def start_replay(replay_file, osc_ip, osc_port):
     global osc_client
     osc_client = SimpleUDPClient(osc_ip, osc_port)
 
-    log_file = open(args.log_file, "r")
-    last_time = {}
+    log_file = open(replay_file, "r")
+    last_time = 0
+    # Order the timestamps in the log file
+    events = []
     for line in log_file:
         line = line.strip()
         event_time, event_type, *sample = line.split(",")
         event_time = float(event_time)
         sample = [float(x) for x in sample]
+        events.append((event_time, event_type, sample))
+    events.sort(key=lambda x: x[0])
 
-        # print(event_time, last_time)
-        time.sleep(abs(event_time - last_time.get(event_type,0)))
-        last_time[event_type] = event_time
+    # Now replay the sorted events
+    for event_time, event_type, sample in events:
+        # Sleep until the event time
+        time.sleep(event_time - last_time)
+        last_time = event_time
 
-        if event_type == "acc": 
+        if event_type == "acc":
             accelerometer_event(0, event_time, *sample)
         elif event_type == "temp":
             temperature_event(0, event_time, *sample)
