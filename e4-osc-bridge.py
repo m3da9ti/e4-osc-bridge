@@ -1,3 +1,4 @@
+from lib2to3.pytree import convert
 import time
 import sys
 
@@ -24,14 +25,19 @@ record_log_file = None
 
 start_time = time.time()
 
+def convert_range(value, in_min, in_max, out_min=0.0, out_max=1.0):
+    in_range = in_max - in_min
+    out_range = out_max - out_min
+    return (((value - in_min) * out_range) / in_range) + out_min
+
 def accelerometer_event(stream_id, timestamp, *sample):
     dt = timestamp - start_time
     print("acc ", stream_id, dt, *sample)
 
     # Convert values in the range -90.0 - 90.0 to 0.0 - 1.0
-    x = (sample[0] + 90.0) / 180.0
-    y = (sample[1] + 90.0) / 180.0
-    z = (sample[2] + 90.0) / 180.0
+    x = convert_range(sample[0], -90.0, 90.0)
+    y = convert_range(sample[1], -90.0, 90.0)
+    z = convert_range(sample[2], -90.0, 90.0)
 
     # Add the new value to the buffers
     acc_x_buffer[:-1] = acc_x_buffer[1:]
@@ -59,7 +65,7 @@ def bvp_event(stream_id, timestamp, *sample):
     print("hr", stream_id, timestamp, *sample)
 
     # Convert values in the range -500.0 - 500.0 to 0.0 - 1.0
-    bvp = (sample[0] + 500.0) / 1000.0
+    bvp = convert_range(sample[0], -500.0, 500.0)
 
     osc_client.send_message("/e4/bvp", bvp)
 
@@ -72,7 +78,7 @@ def temperature_event(stream_id, timestamp, *sample):
     print("temp", stream_id, timestamp, *sample)
 
     # Convert values in the range 25 - 36 to 0.0 - 1.0
-    temp = (sample[0] - 25) / 11
+    temp = convert_range(sample[0], 25.0, 36.0)
 
     osc_client.send_message("/e4/temp", temp)
 
@@ -85,7 +91,7 @@ def gsr_event(stream_id, timestamp, *sample):
     print("gsr", stream_id, timestamp, *sample)
 
     # Convert values in the range 0.03 - 0.12 to 0.0 - 1.0
-    gsr = (sample[0] - 0.03) / 0.09
+    gsr = convert_range(sample[0], 0.03, 0.12)
 
     osc_client.send_message("/e4/gsr", gsr)
 
