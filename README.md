@@ -28,7 +28,7 @@ python e4-osc-bridge.py --record event.log --osc_ip 192.168.1.5 --osc_port 9999
 Read events from a recorded log file and forward them over OSC, using the correct timing:
 
 ```
-python e4-osc-bridge.py --osc_ip 192.168.1.5 --osc_port 9999
+python e4-osc-bridge.py --replay event.log --osc_ip 192.168.1.5 --osc_port 9999
 ```
 
 ## Additional options
