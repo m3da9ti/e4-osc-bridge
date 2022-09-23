@@ -64,10 +64,10 @@ def accelerometer_event(stream_id, timestamp, *sample):
 
 def bvp_event(stream_id, timestamp, *sample):
     dt = timestamp - start_time
-    print("hr", stream_id, timestamp, *sample)
+    print("bvp", stream_id, timestamp, *sample)
 
     # Convert values in the range -500.0 - 500.0 to 0.0 - 1.0
-    bvp = convert_range(sample[0], -500.0, 500.0)
+    bvp = convert_range(sample[0], -80.0, 80.0)
 
     osc_client.send_message("/e4/bvp", bvp)
 
@@ -93,7 +93,7 @@ def gsr_event(stream_id, timestamp, *sample):
     print("gsr", stream_id, timestamp, *sample)
 
     # Convert values in the range 0.03 - 0.12 to 0.0 - 1.0
-    gsr = convert_range(sample[0], 0.03, 0.12)
+    gsr = convert_range(sample[0], 0.06, 0.08)
 
     osc_client.send_message("/e4/gsr", gsr)
 
