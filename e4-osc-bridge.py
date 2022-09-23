@@ -13,6 +13,8 @@ from pythonosc.udp_client import SimpleUDPClient
 # OSC_IP = "127.0.0.1"
 # OSC_PORT = 8888
 
+VALID_TYPES = ['acc', 'bvp', 'temp', 'gsr']
+
 osc_client = None
 
 # Create a numpy moving average buffer of 100 samples
@@ -98,7 +100,7 @@ def gsr_event(stream_id, timestamp, *sample):
     if record_log_file is not None:
         record_log_file.write(f"{dt:.02f},gsr,{sample[0]:0.6f}\n")
 
-def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port, event_type=None):
+def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port, event_types):
     global osc_client
     osc_client = SimpleUDPClient(osc_ip, osc_port)
 
@@ -111,23 +113,22 @@ def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port, event_type=None):
 
         # comment out one event type at a time to log separately
         with e4_client.connect_to_device(devices[0]) as conn:
-            if not event_type or event_type == 'acc':
+            if 'acc' in event_types:
                 conn.subscribe_to_stream(E4DataStreamID.ACC, accelerometer_event)
             
-            if not event_type or event_type == 'bvp':
+            if 'bvp' in event_types:
                 conn.subscribe_to_stream(E4DataStreamID.BVP, bvp_event)
 
-            if not event_type or event_type == 'temp':
+            if 'temp' in event_types:
                 conn.subscribe_to_stream(E4DataStreamID.TEMP, temperature_event)
             
-            if not event_type or event_type == 'gsr':
+            if 'gsr' in event_types:
                 conn.subscribe_to_stream(E4DataStreamID.GSR, gsr_event)
-
 
             while True:
                 time.sleep(1)
 
-def start_replay(replay_log_file, osc_ip, osc_port, filter_by_event_type=None):
+def start_replay(replay_log_file, osc_ip, osc_port, event_types):
     global osc_client
     osc_client = SimpleUDPClient(osc_ip, osc_port)
 
@@ -150,15 +151,21 @@ def start_replay(replay_log_file, osc_ip, osc_port, filter_by_event_type=None):
             time.sleep(abs(event_time - last_time))
             last_time = event_time
 
-            if not filter_by_event_type or filter_by_event_type == event_type:
-                if event_type == "acc":
-                    accelerometer_event(0, event_time, *sample)
-                elif event_type == "temp":
-                    temperature_event(0, event_time, *sample)
-                elif event_type == "bvp":
-                    bvp_event(0, event_time, *sample)
-                elif event_type == "gsr":
-                    gsr_event(0, event_time, *sample)
+            if event_type not in event_types:
+                continue
+
+            if event_type == "acc":
+                accelerometer_event(0, event_time, *sample)
+            elif event_type == "temp":
+                temperature_event(0, event_time, *sample)
+            elif event_type == "bvp":
+                bvp_event(0, event_time, *sample)
+            elif event_type == "gsr":
+                gsr_event(0, event_time, *sample)
+        
+        # Loop the replay
+        print("Replay finished, looping...")
+        last_time = 0
 
 
 if __name__ == "__main__":
@@ -169,17 +176,27 @@ if __name__ == "__main__":
     parser.add_argument('--osc-port', type=int, help='OSC server port', default=8000)
     parser.add_argument('--record', type=str, help='Log E4 streams to file', default=None)
     parser.add_argument('--replay', type=str, help='Replays an existing log file', default=None)
-    parser.add_argument('--type', type=str, help='Filters the event type', default=None)
+    parser.add_argument('--type', type=str, help='Filters the event type, separated by commas (e.g. bvp, gsr)', default=None)
 
     args = parser.parse_args()
+    types = VALID_TYPES
+    if args.type:
+        types = args.type.split(',')
+        types = [t.strip() for t in types]
+        # Check if all types are valid
+        for t in types:
+            if t not in VALID_TYPES:
+                print(f"Invalid event type: {t}")
+                sys.exit(0)
+
 
     if args.replay and args.record:
         print("Cannot record and replay at the same time.")
         sys.exit(0)
     if args.replay:
-        start_replay(args.replay, args.osc_ip, args.osc_port, args.type)
+        start_replay(args.replay, args.osc_ip, args.osc_port, types)
     else:
         if args.record is not None:
             record_log_file = open(args.record, "w")
 
-        start_streaming_client(args.e4_ip, args.e4_port, args.osc_ip, args.osc_port, args.type)
+        start_streaming_client(args.e4_ip, args.e4_port, args.osc_ip, args.osc_port, types)
