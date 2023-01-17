@@ -35,7 +35,7 @@ def convert_range(value, in_min, in_max, out_min=0.0, out_max=1.0):
 
 def accelerometer_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
-    print("acc ", stream_id, dt, *sample)
+    print("acc ", device_uid, dt, *sample)
 
     # Convert values in the range -90.0 - 90.0 to 0.0 - 1.0
     x = convert_range(sample[0], -90.0, 90.0)
@@ -61,11 +61,11 @@ def accelerometer_event(device_uid, stream_id, timestamp, *sample):
     osc_client.send_message("/e4/acc/z", average_z)
 
     if record_log_file is not None:
-        record_log_file.write(f"{device_uid},{dt:.02f},acc,{sample[0]:0.2f},{sample[1]:0.2f},{sample[2]:0.2f}\n")
+        record_log_file.write(f"{dt:.02f},{device_uid},acc,{sample[0]:0.2f},{sample[1]:0.2f},{sample[2]:0.2f}\n")
 
 def bvp_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
-    print("bvp", stream_id, timestamp, *sample)
+    print("bvp", device_uid, timestamp, *sample)
 
     # Convert values in the range -500.0 - 500.0 to 0.0 - 1.0
     bvp = convert_range(sample[0], -80.0, 80.0)
@@ -73,12 +73,12 @@ def bvp_event(device_uid, stream_id, timestamp, *sample):
     osc_client.send_message("/e4/bvp", bvp)
 
     if record_log_file is not None:
-        record_log_file.write(f"{device_uid},{dt:.02f},bvp,{sample[0]:0.2f}\n")
+        record_log_file.write(f"{dt:.02f},{device_uid},bvp,{sample[0]:0.2f}\n")
 
 
 def temperature_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
-    print("temp", stream_id, timestamp, *sample)
+    print("temp", device_uid, timestamp, *sample)
 
     # Convert values in the range 25 - 36 to 0.0 - 1.0
     temp = convert_range(sample[0], 25.0, 36.0)
@@ -86,12 +86,12 @@ def temperature_event(device_uid, stream_id, timestamp, *sample):
     osc_client.send_message("/e4/temp", temp)
 
     if record_log_file is not None:
-        record_log_file.write(f"{device_uid},{dt:.02f},temp,{sample[0]:0.2f}\n")
+        record_log_file.write(f"{dt:.02f},{device_uid},temp,{sample[0]:0.2f}\n")
 
 
 def gsr_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
-    print("gsr", stream_id, timestamp, *sample)
+    print("gsr", device_uid, timestamp, *sample)
 
     # Convert values in the range 0.03 - 0.12 to 0.0 - 1.0
     gsr = convert_range(sample[0], 0.06, 0.08)
@@ -99,7 +99,7 @@ def gsr_event(device_uid, stream_id, timestamp, *sample):
     osc_client.send_message("/e4/gsr", gsr)
 
     if record_log_file is not None:
-        record_log_file.write(f"{device_uid},{dt:.02f},gsr,{sample[0]:0.6f}\n")
+        record_log_file.write(f"{dt:.02f},{device_uid},gsr,{sample[0]:0.6f}\n")
 
 def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port, event_types):
     global osc_client
@@ -140,15 +140,15 @@ def start_replay(replay_log_file, osc_ip, osc_port, event_types):
     events = []
     for line in log_file:
         line = line.strip()
-        device_uid, event_time, event_type, *sample = line.split(",")
+        event_time, device_uid, event_type, *sample = line.split(",")
         event_time = float(event_time)
         sample = [float(x) for x in sample]
-        events.append((event_time, event_type, sample))
+        events.append((event_time, device_uid, event_type, sample))
     events.sort(key=lambda x: x[0])
 
     # Now replay the sorted events
     while True:
-        for event_time, event_type, sample in events:
+        for event_time, device_uid, event_type, sample in events:
             # Sleep until the event time
             time.sleep(abs(event_time - last_time))
             last_time = event_time
