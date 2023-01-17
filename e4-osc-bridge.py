@@ -1,6 +1,7 @@
 from lib2to3.pytree import convert
 import time
 import sys
+from functools import partial
 
 import argparse
 import numpy as np
@@ -32,7 +33,7 @@ def convert_range(value, in_min, in_max, out_min=0.0, out_max=1.0):
     out_range = out_max - out_min
     return (((value - in_min) * out_range) / in_range) + out_min
 
-def accelerometer_event(stream_id, timestamp, *sample):
+def accelerometer_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
     print("acc ", stream_id, dt, *sample)
 
@@ -60,9 +61,9 @@ def accelerometer_event(stream_id, timestamp, *sample):
     osc_client.send_message("/e4/acc/z", average_z)
 
     if record_log_file is not None:
-        record_log_file.write(f"{dt:.02f},acc,{sample[0]:0.2f},{sample[1]:0.2f},{sample[2]:0.2f}\n")
+        record_log_file.write(f"{device_uid},{dt:.02f},acc,{sample[0]:0.2f},{sample[1]:0.2f},{sample[2]:0.2f}\n")
 
-def bvp_event(stream_id, timestamp, *sample):
+def bvp_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
     print("bvp", stream_id, timestamp, *sample)
 
@@ -72,10 +73,10 @@ def bvp_event(stream_id, timestamp, *sample):
     osc_client.send_message("/e4/bvp", bvp)
 
     if record_log_file is not None:
-        record_log_file.write(f"{dt:.02f},bvp,{sample[0]:0.2f}\n")
+        record_log_file.write(f"{device_uid},{dt:.02f},bvp,{sample[0]:0.2f}\n")
 
 
-def temperature_event(stream_id, timestamp, *sample):
+def temperature_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
     print("temp", stream_id, timestamp, *sample)
 
@@ -85,10 +86,10 @@ def temperature_event(stream_id, timestamp, *sample):
     osc_client.send_message("/e4/temp", temp)
 
     if record_log_file is not None:
-        record_log_file.write(f"{dt:.02f},temp,{sample[0]:0.2f}\n")
+        record_log_file.write(f"{device_uid},{dt:.02f},temp,{sample[0]:0.2f}\n")
 
 
-def gsr_event(stream_id, timestamp, *sample):
+def gsr_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
     print("gsr", stream_id, timestamp, *sample)
 
@@ -98,7 +99,7 @@ def gsr_event(stream_id, timestamp, *sample):
     osc_client.send_message("/e4/gsr", gsr)
 
     if record_log_file is not None:
-        record_log_file.write(f"{dt:.02f},gsr,{sample[0]:0.6f}\n")
+        record_log_file.write(f"{device_uid},{dt:.02f},gsr,{sample[0]:0.6f}\n")
 
 def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port, event_types):
     global osc_client
@@ -111,22 +112,23 @@ def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port, event_types):
             print("No E4 devices found.")
             sys.exit(0)
 
-        # comment out one event type at a time to log separately
-        with e4_client.connect_to_device(devices[0]) as conn:
-            if 'acc' in event_types:
-                conn.subscribe_to_stream(E4DataStreamID.ACC, accelerometer_event)
-            
-            if 'bvp' in event_types:
-                conn.subscribe_to_stream(E4DataStreamID.BVP, bvp_event)
+        for device in devices:
+            with e4_client.connect_to_device(device) as conn:
+                uid = device.uid
+                if 'acc' in event_types:
+                    conn.subscribe_to_stream(E4DataStreamID.ACC, partial(accelerometer_event, uid))
+                
+                if 'bvp' in event_types:
+                    conn.subscribe_to_stream(E4DataStreamID.BVP, partial(bvp_event, uid))
 
-            if 'temp' in event_types:
-                conn.subscribe_to_stream(E4DataStreamID.TEMP, temperature_event)
-            
-            if 'gsr' in event_types:
-                conn.subscribe_to_stream(E4DataStreamID.GSR, gsr_event)
+                if 'temp' in event_types:
+                    conn.subscribe_to_stream(E4DataStreamID.TEMP, partial(temperature_event, uid))
+                
+                if 'gsr' in event_types:
+                    conn.subscribe_to_stream(E4DataStreamID.GSR, partial(gsr_event, uid))
 
-            while True:
-                time.sleep(1)
+        while True:
+            time.sleep(1)
 
 def start_replay(replay_log_file, osc_ip, osc_port, event_types):
     global osc_client
@@ -138,7 +140,7 @@ def start_replay(replay_log_file, osc_ip, osc_port, event_types):
     events = []
     for line in log_file:
         line = line.strip()
-        event_time, event_type, *sample = line.split(",")
+        device_uid, event_time, event_type, *sample = line.split(",")
         event_time = float(event_time)
         sample = [float(x) for x in sample]
         events.append((event_time, event_type, sample))
@@ -155,13 +157,13 @@ def start_replay(replay_log_file, osc_ip, osc_port, event_types):
                 continue
 
             if event_type == "acc":
-                accelerometer_event(0, event_time, *sample)
+                accelerometer_event(device_uid, 0, event_time, *sample)
             elif event_type == "temp":
-                temperature_event(0, event_time, *sample)
+                temperature_event(device_uid, 0, event_time, *sample)
             elif event_type == "bvp":
-                bvp_event(0, event_time, *sample)
+                bvp_event(device_uid, 0, event_time, *sample)
             elif event_type == "gsr":
-                gsr_event(0, event_time, *sample)
+                gsr_event(device_uid, 0, event_time, *sample)
         
         # Loop the replay
         print("Replay finished, looping...")
