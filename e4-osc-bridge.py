@@ -25,6 +25,7 @@ acc_y_buffer = np.zeros(acc_buffer_length)
 acc_z_buffer = np.zeros(acc_buffer_length)
 
 record_log_file = None
+print_events = True
 
 start_time = time.time()
 
@@ -35,7 +36,8 @@ def convert_range(value, in_min, in_max, out_min=0.0, out_max=1.0):
 
 def accelerometer_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
-    print("acc ", device_uid, dt, *sample)
+    if print_events:
+        print("acc ", device_uid, dt, *sample)
 
     # Convert values in the range -90.0 - 90.0 to 0.0 - 1.0
     x = convert_range(sample[0], -90.0, 90.0)
@@ -65,7 +67,8 @@ def accelerometer_event(device_uid, stream_id, timestamp, *sample):
 
 def bvp_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
-    print("bvp", device_uid, timestamp, *sample)
+    if print_events:
+        print("bvp", device_uid, timestamp, *sample)
 
     # Convert values in the range -500.0 - 500.0 to 0.0 - 1.0
     bvp = convert_range(sample[0], -80.0, 80.0)
@@ -78,7 +81,8 @@ def bvp_event(device_uid, stream_id, timestamp, *sample):
 
 def temperature_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
-    print("temp", device_uid, timestamp, *sample)
+    if print_events:
+        print("temp", device_uid, timestamp, *sample)
 
     # Convert values in the range 25 - 36 to 0.0 - 1.0
     temp = convert_range(sample[0], 25.0, 36.0)
@@ -91,7 +95,8 @@ def temperature_event(device_uid, stream_id, timestamp, *sample):
 
 def gsr_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
-    print("gsr", device_uid, timestamp, *sample)
+    if print_events:
+        print("gsr", device_uid, timestamp, *sample)
 
     # Convert values in the range 0.03 - 0.12 to 0.0 - 1.0
     gsr = convert_range(sample[0], 0.06, 0.08)
@@ -179,6 +184,7 @@ if __name__ == "__main__":
     parser.add_argument('--record', type=str, help='Log E4 streams to file', default=None)
     parser.add_argument('--replay', type=str, help='Replays an existing log file', default=None)
     parser.add_argument('--type', type=str, help='Filters the event type, separated by commas (e.g. bvp, gsr)', default=None)
+    parser.add_argument('--quiet', action='store_true', help='Don\'t log out all events')
 
     args = parser.parse_args()
     types = VALID_TYPES
@@ -191,6 +197,8 @@ if __name__ == "__main__":
                 print(f"Invalid event type: {t}")
                 sys.exit(0)
 
+    if args.quiet:
+        print_events = False
 
     if args.replay and args.record:
         print("Cannot record and replay at the same time.")
