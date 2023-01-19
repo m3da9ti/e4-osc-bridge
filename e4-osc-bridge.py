@@ -132,8 +132,8 @@ def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port, event_types):
                 if 'gsr' in event_types:
                     conn.subscribe_to_stream(E4DataStreamID.GSR, partial(gsr_event, uid))
 
-        while True:
-            time.sleep(1)
+                while True:
+                    time.sleep(1)
 
 def start_replay(replay_log_file, osc_ip, osc_port, event_types):
     global osc_client
