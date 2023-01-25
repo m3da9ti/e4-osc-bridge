@@ -15,7 +15,7 @@ from pythonosc.udp_client import SimpleUDPClient
 # OSC_IP = "127.0.0.1"
 # OSC_PORT = 8888
 
-VALID_TYPES = ['acc', 'bvp', 'temp', 'gsr']
+VALID_TYPES = ['acc', 'bvp', 'temp', 'gsr', 'tag']
 
 osc_client = None
 
@@ -107,6 +107,16 @@ def gsr_event(device_uid, stream_id, timestamp, *sample):
     if record_log_file is not None:
         record_log_file.write(f"{dt:.02f},{device_uid},gsr,{sample[0]:0.6f}\n")
 
+def tag_event(device_uid, stream_id, timestamp, *sample):
+    dt = timestamp - start_time
+    if print_events:
+        print("tag", device_uid, timestamp, *sample)
+
+    osc_client.send_message("/e4/tag", sample[0])
+
+    if record_log_file is not None:
+        record_log_file.write(f"{dt:.02f},{device_uid},tag,{sample[0]}\n")
+
 def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port, event_types):
     global osc_client
     osc_client = SimpleUDPClient(osc_ip, osc_port)
@@ -139,6 +149,10 @@ def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port, event_types):
             
             if 'gsr' in event_types:
                 conn.subscribe_to_stream(E4DataStreamID.GSR, partial(gsr_event, uid))
+
+            if 'tag' in event_types:
+                conn.subscribe_to_stream(E4DataStreamID.TAG, partial(tag_event, uid))
+
 
         while True:
             time.sleep(1)
@@ -177,7 +191,9 @@ def start_replay(replay_log_file, osc_ip, osc_port, event_types):
                 bvp_event(device_uid, 0, event_time, *sample)
             elif event_type == "gsr":
                 gsr_event(device_uid, 0, event_time, *sample)
-        
+            elif event_type == "tag":
+                tag_event(device_uid, 0, event_time, *sample)
+
         # Loop the replay
         print("Replay finished, looping...")
         last_time = 0
