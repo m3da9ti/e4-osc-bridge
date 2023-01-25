@@ -2,6 +2,7 @@ from lib2to3.pytree import convert
 import time
 import sys
 from functools import partial
+from contextlib import ExitStack
 
 import argparse
 import numpy as np
@@ -111,29 +112,36 @@ def start_streaming_client(e4_ip, e4_port, osc_ip, osc_port, event_types):
     osc_client = SimpleUDPClient(osc_ip, osc_port)
 
     with E4StreamingClient(e4_ip, e4_port) as e4_client:
-        devices = e4_client.list_connected_devices()
+        devices = list(e4_client.list_connected_devices())
         print("E4 Devices:", devices)
         if len(devices) == 0:
             print("No E4 devices found.")
             sys.exit(0)
 
+    # We need to setup multiple TCP connections, one for each device.
+
+    with ExitStack() as stack:
         for device in devices:
-            with e4_client.connect_to_device(device) as conn:
-                uid = device.uid
-                if 'acc' in event_types:
-                    conn.subscribe_to_stream(E4DataStreamID.ACC, partial(accelerometer_event, uid))
-                
-                if 'bvp' in event_types:
-                    conn.subscribe_to_stream(E4DataStreamID.BVP, partial(bvp_event, uid))
+            e4_client = E4StreamingClient(e4_ip, e4_port)
+            stack.enter_context(e4_client)
+            print(device)
+            conn = e4_client.connect_to_device(device)
+            stack.enter_context(conn)
+            uid = device.uid
+            if 'acc' in event_types:
+                conn.subscribe_to_stream(E4DataStreamID.ACC, partial(accelerometer_event, uid))
+            
+            if 'bvp' in event_types:
+                conn.subscribe_to_stream(E4DataStreamID.BVP, partial(bvp_event, uid))
 
-                if 'temp' in event_types:
-                    conn.subscribe_to_stream(E4DataStreamID.TEMP, partial(temperature_event, uid))
-                
-                if 'gsr' in event_types:
-                    conn.subscribe_to_stream(E4DataStreamID.GSR, partial(gsr_event, uid))
+            if 'temp' in event_types:
+                conn.subscribe_to_stream(E4DataStreamID.TEMP, partial(temperature_event, uid))
+            
+            if 'gsr' in event_types:
+                conn.subscribe_to_stream(E4DataStreamID.GSR, partial(gsr_event, uid))
 
-                while True:
-                    time.sleep(1)
+        while True:
+            time.sleep(1)
 
 def start_replay(replay_log_file, osc_ip, osc_port, event_types):
     global osc_client
