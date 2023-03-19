@@ -1,8 +1,8 @@
 # Empatica E4 - OSC bridge
 
-This Python script receives messages from the Empatica E4 streaming server and forwards them to OSC.
+This Python script receives messages from the MQTT broker and can forward them to OSC and/or save/store into InfluxDB
 
-It uses [open-e4-client](https://pypi.org/project/open-e4-client/) and [Python OSC](https://pypi.org/project/python-osc/) to communicate with both the E4 and OSC.
+It uses [Python OSC](https://pypi.org/project/python-osc/) to communicate with OSC.
 
 # Setup
 
@@ -10,25 +10,25 @@ It uses [open-e4-client](https://pypi.org/project/open-e4-client/) and [Python O
 
 - Install dependencies:
 ```
-pip install open-e4-client python-osc
+pip3 install -r requirements.txt
 ```
 
 # Usage
 
 ## Recording an E4 event stream
 
-Connect to an E4 Streaming Server, read all events, record them in an event log and forwards them over OSC:
+Connect to an MQTT (topuc = 'e4'), read all events, store them in InfluxDB and forward them over OSC:
 
 ```
-python e4-osc-bridge.py --record event.log --osc_ip 192.168.1.5 --osc_port 9999
+python3 mqtt_osc_bridge.py --record --osc_ip 192.168.1.5 --osc_port 9999 --osc-stream
 ```
 
 ## Replaying an E4 event stream
 
-Read events from a recorded log file and forward them over OSC, using the correct timing:
+Read events from InfluxDB for a specific run by supplying its ID and forward them over OSC, using the correct timing:
 
 ```
-python e4-osc-bridge.py --replay event.log --osc_ip 192.168.1.5 --osc_port 9999
+python3 influxdb_replay.py --run-tag series-031920231413 --osc_ip 192.168.1.5 --osc_port 9999
 ```
 
 ## Additional options
@@ -36,5 +36,5 @@ python e4-osc-bridge.py --replay event.log --osc_ip 192.168.1.5 --osc_port 9999
 To see a list of arguments, run:
 
 ```
-python e4-osc-bridge.py --help
+python3 <script name> --help
 ```
