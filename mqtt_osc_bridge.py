@@ -13,8 +13,6 @@ from influx import Influx
 
 VALID_TYPES = ['acc', 'bvp', 'temp', 'gsr', 'tag']
 
-osc_stream = False
-
 def on_subscribe(client, userdata, mid, qos, tmp=None):
     if isinstance(qos, list):
         qos_msg = str(qos[0])
@@ -28,7 +26,7 @@ def on_mqtt_message(client, userdata, message, tmp=None):
     print("received message: ", decoded_msg)
     res = json.loads(decoded_msg)
     osc_client = None
-    if osc_stream:
+    if args.osc_stream:
         osc_client = SimpleUDPClient(args.osc_ip, args.osc_port)
 
     if res.get('type') == 'temp':
@@ -75,7 +73,6 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument('--quiet', action='store_true', help='Don\'t log out all events')
 
-
     influx = None
     args = parser.parse_args()
     types = VALID_TYPES
@@ -104,7 +101,6 @@ if __name__ == '__main__':
     if args.record:
         print(f'Connecting to InfluxDB: {args.influx_url}|{args.influx_org}|{args.influx_bucket}')
         influx = Influx(args.influx_url, args.influx_token, args.influx_org, args.influx_bucket)
-    osc_stream = args.osc_stream
 
     try:
         client.connect(args.mqtt_broker,
