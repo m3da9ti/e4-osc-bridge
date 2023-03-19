@@ -13,6 +13,8 @@ from influx import Influx
 
 VALID_TYPES = ['acc', 'bvp', 'temp', 'gsr', 'tag']
 
+osc_stream = False
+
 def on_subscribe(client, userdata, mid, qos, tmp=None):
     if isinstance(qos, list):
         qos_msg = str(qos[0])
@@ -25,7 +27,9 @@ def on_mqtt_message(client, userdata, message, tmp=None):
     decoded_msg = str(message.payload.decode("utf-8"))
     print("received message: ", decoded_msg)
     res = json.loads(decoded_msg)
-    osc_client = SimpleUDPClient(args.osc_ip, args.osc_port)
+    osc_client = None
+    if osc_stream:
+        osc_client = SimpleUDPClient(args.osc_ip, args.osc_port)
 
     if res.get('type') == 'temp':
         events.temperature_event(res, osc_client, influx)
@@ -59,13 +63,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Forward E4 app / mqtt messages to OSC.')
     parser.add_argument('--osc-ip', type=str, help='OSC server IP address', default='127.0.0.1')
     parser.add_argument('--osc-port', type=int, help='OSC server port', default=8000)
+    parser.add_argument('--osc-stream', action='store_true', help='Stream events over osc')
     parser.add_argument('--record', action='store_true', help='Persist all events into Influx DB')
-    parser.add_argument('--mqtt-broker', type=str, help='IP Address of MQTT Broker', default='192.168.1.8')
+    parser.add_argument('--mqtt-broker', type=str, help='IP Address of MQTT Broker', default='127.0.0.1')
     parser.add_argument('--mqtt-topic', type=str, help='MQTT Topic', default='e4')
     parser.add_argument('--influx-url', type=str, help='Influx URL', default='http://localhost:8086/')
     parser.add_argument('--influx-token', type=str, help='Influx token', default='bKZ6u51oPb3rvWCskPuDWGxR39qiTVosCdUcKmsRxYWhRwYjgVNQajL7668HgAEMDlfCr9dwrxEF2QEpmV0KQQ==')
-    parser.add_argument('--influx-org', type=str, help='Influx bucket', default='e4-bucket')
-    parser.add_argument('--influx-bucket', type=str, help='Influx Org ID', default='230dc0ec1d83e595')
+    parser.add_argument('--influx-bucket', type=str, help='Influx bucket', default='e4-bucket')
+    parser.add_argument('--influx-org', type=str, help='Influx Org ID', default='230dc0ec1d83e595')
     parser.add_argument('--type', type=str, help='Filters the event type, separated by commas (e.g. bvp, gsr)',
                         default=None)
     parser.add_argument('--quiet', action='store_true', help='Don\'t log out all events')
@@ -99,6 +104,7 @@ if __name__ == '__main__':
     if args.record:
         print(f'Connecting to InfluxDB: {args.influx_url}|{args.influx_org}|{args.influx_bucket}')
         influx = Influx(args.influx_url, args.influx_token, args.influx_org, args.influx_bucket)
+    osc_stream = args.osc_stream
 
     try:
         client.connect(args.mqtt_broker,
