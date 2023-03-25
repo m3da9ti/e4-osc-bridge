@@ -63,8 +63,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Forward E4 app / mqtt messages to OSC.')
     parser.add_argument('--osc-ip', type=str, help='OSC server IP address', default='127.0.0.1')
     parser.add_argument('--osc-port', type=int, help='OSC server port', default=8000)
-    parser.add_argument('--osc-stream', action='store_true', help='Stream events over osc')
-    parser.add_argument('--record', action='store_true', help='Persist all events into Influx DB')
     parser.add_argument('--mqtt-broker', type=str, help='IP Address of MQTT Broker', default='127.0.0.1')
     parser.add_argument('--mqtt-topic', type=str, help='MQTT Topic', default='e4')
     parser.add_argument('--influx-url', type=str, help='Influx URL', default='http://localhost:8086/')
@@ -73,7 +71,16 @@ if __name__ == '__main__':
     parser.add_argument('--influx-org', type=str, help='Influx Org ID', default='230dc0ec1d83e595')
     parser.add_argument('--type', type=str, help='Filters the event type, separated by commas (e.g. bvp, gsr)',
                         default=None)
+
+    # options not requiring values:
+    # if --osc-stream is not passed from the command line, it will be False == no streaming
+    parser.add_argument('--osc-stream', action='store_true', help='Stream events over osc')
+    # if --record is not passed from the command line, it will be False == not saving to db
+    parser.add_argument('--record', action='store_true', help='Persist all events into Influx DB')
+    # if --quiet is not passed from the command line, it will be False == verbose
     parser.add_argument('--quiet', action='store_true', help='Don\'t log out all events')
+
+
 
 
     influx = None
@@ -100,6 +107,9 @@ if __name__ == '__main__':
 
     properties = Properties(PacketTypes.CONNECT)
     properties.SessionExpiryInterval = 30 * 60  # in seconds
+
+    if args.osc_stream:
+        print(f'Streaming to osc {args.osc_ip}:{args.osc_port}')
 
     if args.record:
         print(f'Connecting to InfluxDB: {args.influx_url}|{args.influx_org}|{args.influx_bucket}')
