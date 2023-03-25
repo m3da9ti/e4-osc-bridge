@@ -24,6 +24,20 @@ def on_subscribe(client, userdata, mid, qos, tmp=None):
 
 
 def on_mqtt_message(client, userdata, message, tmp=None):
+    """
+    {
+        "type": "bvp|acc|... etc",
+        "device": "device id",
+        "run": "run tag e.g. series-202303011422",
+        "timestamp": "unix timestamp",
+        "value": 01.01,
+
+        // in case of acc:
+        "x": 99,
+        "y": 199,
+        "z": 299
+    }
+    """
     decoded_msg = str(message.payload.decode("utf-8"))
     print("received message: ", decoded_msg)
     res = json.loads(decoded_msg)
@@ -54,8 +68,8 @@ def on_mqtt_connect(client, userdata, flags, rc, v5config=None):
 def signal_handler(sig, frame):
     print('You pressed Ctrl+C!')
     print('>>>>>> stopping')
-    client.loop_stop()
-    client.disconnect()
+    mqtt_client.loop_stop()
+    mqtt_client.disconnect()
     sys.exit(0)
 
 
@@ -95,12 +109,26 @@ if __name__ == '__main__':
                 print(f"Invalid event type: {t}")
                 sys.exit(0)
 
+
+    # check if we have to osc stream
+    if args.osc_stream:
+        print(f'Streaming to osc {args.osc_ip}:{args.osc_port}')
+    osc_stream = args.osc_stream
+
+    # connect to Influxdb if --record is given
+    if args.record:
+        print(f'Connecting to InfluxDB: {args.influx_url}|{args.influx_org}|{args.influx_bucket}')
+        influx = Influx(args.influx_url, args.influx_token, args.influx_org, args.influx_bucket)
+    
+    # connect to mqtt
     mqtt.Client.connected_flag = False
-    client = mqtt.Client("osc-bridge", transport='tcp', protocol=mqtt.MQTTv5)
+    mqtt_client = mqtt.Client("osc-bridge", transport='tcp', protocol=mqtt.MQTTv5)
     print(f'Connecting to mqtt broker at: {args.mqtt_broker}')
-    client.on_connect = on_mqtt_connect
-    client.on_subscribe = on_subscribe
-    client.on_message = on_mqtt_message
+
+    # mqtt callbacks
+    mqtt_client.on_connect = on_mqtt_connect
+    mqtt_client.on_subscribe = on_subscribe
+    mqtt_client.on_message = on_mqtt_message
 
     from paho.mqtt.properties import Properties
     from paho.mqtt.packettypes import PacketTypes
@@ -108,16 +136,8 @@ if __name__ == '__main__':
     properties = Properties(PacketTypes.CONNECT)
     properties.SessionExpiryInterval = 30 * 60  # in seconds
 
-    if args.osc_stream:
-        print(f'Streaming to osc {args.osc_ip}:{args.osc_port}')
-
-    if args.record:
-        print(f'Connecting to InfluxDB: {args.influx_url}|{args.influx_org}|{args.influx_bucket}')
-        influx = Influx(args.influx_url, args.influx_token, args.influx_org, args.influx_bucket)
-    osc_stream = args.osc_stream
-
     try:
-        client.connect(args.mqtt_broker,
+        mqtt_client.connect(args.mqtt_broker,
                        port=1883,
                        clean_start=mqtt.MQTT_CLEAN_START_FIRST_ONLY,
                        properties=properties,
@@ -125,20 +145,20 @@ if __name__ == '__main__':
                        )
 
         print(f'>>>> subscribing to the mqtt topic ... {args.mqtt_topic}')
-        client.subscribe(args.mqtt_topic)
+        mqtt_client.subscribe(args.mqtt_topic)
 
         time.sleep(10)
 
         print(f'>>>> starting the mqtt loop...')
-        client.loop_forever()
+        mqtt_client.loop_forever()
 
         # print(f'>>>> setting the signal')
         # signal.signal(signal.SIGINT, signal_handler)
     except KeyboardInterrupt:
         print('Ctrl-C is pressed, stopping the mqtt loop...')
-        client.loop_stop()
+        mqtt_client.loop_stop()
         print('disconnecting...')
-        client.disconnect()
+        mqtt_client.disconnect()
 
     except Exception:
         traceback.print_exc()
