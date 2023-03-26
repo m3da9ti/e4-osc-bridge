@@ -39,22 +39,24 @@ def on_mqtt_message(client, userdata, message, tmp=None):
     }
     """
     decoded_msg = str(message.payload.decode("utf-8"))
-    print("received message: ", decoded_msg)
+    if not args.quiet:
+         print("received message: ", decoded_msg)
     res = json.loads(decoded_msg)
     osc_client = None
+
     if osc_stream:
         osc_client = SimpleUDPClient(args.osc_ip, args.osc_port)
 
     if res.get('type') == 'temp':
-        events.temperature_event(res, osc_client, influx)
+        events.temperature_event(res, osc_client, influx, args.quiet)
     elif res.get('type') == 'bvp':
-        events.bvp_event(res, osc_client, influx)
+        events.bvp_event(res, osc_client, influx, args.quiet)
     elif res.get('type') == 'acc':
-        events.accelerometer_event(res, osc_client, influx)
+        events.accelerometer_event(res, osc_client, influx, args.quiet)
     elif res.get('type') == 'gsr':
-        events.gsr_event(res, osc_client, influx)
+        events.gsr_event(res, osc_client, influx, args.quiet)
     elif res.get('type') == 'tag':
-        events.tag_event(res, osc_client, influx)
+        events.tag_event(res, osc_client, influx, args.quiet)
 
 
 def on_mqtt_connect(client, userdata, flags, rc, v5config=None):

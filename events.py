@@ -46,8 +46,9 @@ def accelerometer_event(data, osc_client, db_handler=None, is_quiet=False):
     average_x = np.mean(acc_x_buffer)
     average_y = np.mean(acc_y_buffer)
     average_z = np.mean(acc_z_buffer)
-
-    print("/e4/acc/x", average_x, average_y, average_z)
+    
+    if not is_quiet:
+        print("/e4/acc/x", average_x, average_y, average_z)
     if osc_client:
         osc_client.send_message("/e4/acc/x", average_x)
         osc_client.send_message("/e4/acc/y", average_y)
