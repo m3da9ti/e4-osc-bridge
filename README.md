@@ -20,7 +20,7 @@ pip3 install -r requirements.txt
 Connect to an MQTT (topuc = 'e4'), read all events, store them in InfluxDB and forward them over OSC:
 
 ```
-python3 mqtt_osc_bridge.py --record --osc_ip 192.168.1.5 --osc_port 9999 --osc-stream
+python3 mqtt_osc_bridge.py --record --osc-ip 192.168.1.5 --osc-port 9999 --osc-stream
 ```
 
 ## Replaying an E4 event stream
