@@ -70,7 +70,7 @@ def bvp_event(device_uid, stream_id, timestamp, *sample):
     dt = timestamp - start_time
     if print_events:
         print("bvp", device_uid, timestamp, *sample)
-
+        
     # Convert values in the range -500.0 - 500.0 to 0.0 - 1.0
     bvp = convert_range(sample[0], -80.0, 80.0)
 
