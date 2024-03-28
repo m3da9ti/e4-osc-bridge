@@ -1,8 +1,10 @@
 import time
 import numpy as np
-import heartpy as hp
 from math import sqrt, pow
-from filters import LiveLFilter, LiveSosFilter, get_heartbeat_filter
+from scipy.signal import butter, filtfilt, find_peaks, lfilter, iirfilter
+from scipy.ndimage import gaussian_filter1d
+from collections import deque
+from hr_calc import calculate_hr as bvp_calculate_hr
 
 start_time = time.time()
 # Create a numpy moving average buffer of 100 samples
@@ -12,22 +14,12 @@ acc_buffer_length = 2
 # acc_z_buffer = np.zeros(acc_buffer_length)
 acc_buffer = np.zeros(acc_buffer_length)
 gsr_range = [0.0, 0.5]
-live_filter = get_heartbeat_filter(order=4, cutoff=[0.5, 2.5], btype="bandpass", fs=64,
-                         output="sos")
+bvp_queue = deque(maxlen=600)
 
-# # https://www.samproell.io/posts/yarppg/yarppg-live-digital-filter/
-# def get_heartbeat_filter(order=4, cutoff=[0.5, 2.5], btype="bandpass", fs=30,
-#                          output="ba"):
-#     """Create live filter with lfilter or sosfilter implmementation.
-#     """
-#     coeffs = scipy.signal.iirfilter(order, Wn=cutoff, fs=fs, btype=btype,
-#                                     ftype="butter", output=output)
-
-#     if output == "ba":
-#         return LiveLFilter(*coeffs)
-#     elif output == "sos":
-#         return LiveSosFilter(coeffs)
-#     raise NotImplementedError(f"Unknown output {output!r}")
+# Initialize your GSR buffer, OSC client, and other parameters
+gsr_buffer_length = 4  # Example length, adjust as needed
+gsr_buffer = [0] * gsr_buffer_length
+gsr_fs = 4  # Sampling rate (e.g., 4 Hz)
 
 def convert_range(value, in_min, in_max, out_min=0.0, out_max=1.0):
     in_range = in_max - in_min
@@ -84,30 +76,40 @@ def accelerometer_event(data, osc_client, db_handler=None, is_quiet=False):
             # osc_client.send_message("/e4/acc/y", average_y)
             # osc_client.send_message("/e4/acc/z", average_z)
 
-    if db_handler:
-        db_handler.write_to_influx('acc', device_uid, run_tag, timestamp, None, average_x, average_y, average_z)
+    # THERE IS AN ISSUE HERE WITH average_x/y/z not being defined
+    # if db_handler:
+    #     db_handler.write_to_influx('acc', device_uid, run_tag, timestamp, None, average_x, average_y, average_z)
 
 
 def bvp_event(data, osc_client, db_handler=None, is_quiet=False ):
     device_uid, run_tag, timestamp, value = get_data_value(data)
     dt = timestamp - start_time
-    if not is_quiet:
-        print("bvp", device_uid, timestamp, value)
+    if not is_quiet:  
+         print("bvp", device_uid, timestamp, value)
 
     # Convert values in the range -500.0 - 500.0 to 0.0 - 1.0
     # bvp = convert_range(value, -80.0, 80.0)
-    
-    # Process the live BVP data using HeartPy
-    filtered_value = live_filter(value)
-    bvp = filtered_value
-    print(f'>>>>> BVP {value} {filtered_value}')
+    bvp = value
+    bvp_queue.append(value)
 
-    # wd, m = hp.process([filtered_value], sample_rate=64)
-    # # Calculate heart rate
-    # bvp = m['bpm']
+    try:
+        if len(bvp_queue) == bvp_queue.maxlen:
+            # buffer is filled
+            hr,_,ibi_mean,_ = bvp_calculate_hr(bvp_queue)
 
-    if osc_client:
-        osc_client.send_message("/e4/bvp", bvp)
+            if not is_quiet:  
+                # print("hr", device_uid, timestamp, hr)
+                print("ibi", device_uid, timestamp, ibi_mean)
+
+            if osc_client:
+                # osc_client.send_message("/e4/hr", hr)
+                osc_client.send_message("/e4/ibi", ibi_mean)
+
+        if osc_client:
+            osc_client.send_message("/e4/bvp", bvp)
+
+    except:
+        print('oops shit just happened')
 
     if db_handler:
         db_handler.write_to_influx('bvp', device_uid, run_tag, timestamp, bvp)  # or value?
@@ -132,20 +134,39 @@ def temperature_event(data, osc_client, db_handler=None, is_quiet=False):
 def gsr_event(data, osc_client, db_handler=None, is_quiet=False):
     device_uid, run_tag, timestamp, value = get_data_value(data)
     dt = timestamp - start_time
-    # if not is_quiet:
-    #     print("gsr", device_uid, timestamp, value)
+    if not is_quiet:
+        print("gsr", device_uid, timestamp, value)
 
-    if value < gsr_range[0]:
-        gsr_range[0] = value
-    if value > gsr_range[1]:
-        gsr_range[1] = value
+    # if value < gsr_range[0]:
+    #     gsr_range[0] = value
+    # if value > gsr_range[1]:
+    #     gsr_range[1] = value
 
     # Convert values to the range of 0.0 - 1.0    
-    gsr = convert_range(value, gsr_range[0], gsr_range[1], 0, 50)
-    print("EDA", value, gsr)  
+    # gsr = convert_range(value, gsr_range[0], gsr_range[1], 0, 50)
+    # print("EDA", value, gsr)  
+    # Assuming gsr_buffer, fs (sampling rate), and other necessary setup are already defined
 
-    if osc_client:
-        osc_client.send_message("/e4/gsr", gsr)
+    # for db update
+    gsr = value
+
+    # Update the buffer with the new GSR data
+    gsr_buffer[:-1] = gsr_buffer[1:]
+    gsr_buffer[-1] = value
+
+    # Calculate the rate of change if the first element is not zero (buffer is filled)
+    if gsr_buffer[0] != 0:
+        gsr_diff = abs((gsr_buffer[-1] - gsr_buffer[0]) / gsr_fs)  # Dividing by the sampling rate
+
+        # Process the difference (e.g., print or send via OSC)
+        if not is_quiet:
+            print("/e4/gsr", gsr_diff)
+        if osc_client:
+            osc_client.send_message("/e4/gsr", gsr_diff)
+
+
+    # if osc_client:
+    #     osc_client.send_message("/e4/gsr", gsr)
 
     if db_handler:
         db_handler.write_to_influx('gsr', device_uid, run_tag, timestamp, gsr)

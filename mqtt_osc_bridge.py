@@ -41,8 +41,8 @@ def on_mqtt_message(client, userdata, message, tmp=None):
     }
     """
     decoded_msg = str(message.payload.decode("utf-8"))
-    # if not args.quiet:
-    #      print("received message: ", decoded_msg)
+    if not args.quiet:
+          print("received message: ", decoded_msg)
     # parse the incoming message into json
     res = json.loads(decoded_msg)
     osc_client = None
@@ -54,11 +54,11 @@ def on_mqtt_message(client, userdata, message, tmp=None):
         events.temperature_event(res, osc_client, influx, args.quiet)
     if res.get('type') == 'bvp':
         events.bvp_event(res, osc_client, influx, args.quiet)
-    elif res.get('type') == 'acc':
+    if res.get('type') == 'acc':
          events.accelerometer_event(res, osc_client, influx, args.quiet)
-    elif res.get('type') == 'gsr':
+    if res.get('type') == 'gsr':
          events.gsr_event(res, osc_client, influx, args.quiet)
-    elif res.get('type') == 'tag':
+    if res.get('type') == 'tag':
          events.tag_event(res, osc_client, influx, args.quiet)
 
 

@@ -1,6 +1,6 @@
-numpy==1.23.3
 open-e4-client==0.1.1
 python-osc==1.8.0
 paho-mqtt==1.6.1
 influxdb_client==1.36.0
-heartpy=1.2.7
+numpy~=1.26.2
+scipy~=1.11.4
