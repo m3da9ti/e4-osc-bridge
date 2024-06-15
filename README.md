@@ -21,6 +21,8 @@ Connect to an MQTT (topuc = 'e4'), read all events, store them in InfluxDB and f
 
 ```
 python3 mqtt_osc_bridge.py --record --osc-port 8000 --osc-stream
+
+python3 mqtt_osc_bridge.py --osc-port 8002 --osc-port-2 8003 --osc-ip-2 127.0.0.1 --osc-stream
  ```
 
 ## Replaying an E4 event stream

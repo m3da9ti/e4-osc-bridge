@@ -35,7 +35,7 @@ def get_data_xyz(data):
     return data.get('device'), data.get('run'), data.get('timestamp'), data.get('x'), data.get('y'), data.get('z')
 
 
-def accelerometer_event(data, osc_client, db_handler=None, is_quiet=False):
+def accelerometer_event(data, osc_clients, db_handler=None, is_quiet=False):
     device_uid, run_tag, timestamp, x, y, z = get_data_xyz(data)
     dt = timestamp - start_time
     if not is_quiet:
@@ -69,9 +69,10 @@ def accelerometer_event(data, osc_client, db_handler=None, is_quiet=False):
         diff = abs((value - acc_buffer[0])/32)
         if not is_quiet:
             print("/e4/acc", diff)
-        if osc_client:
+        for osc_client in osc_clients:
             osc_client.send_message("/e4/acc", diff)
 
+            #for osc_client in osc_clients:
             # osc_client.send_message("/e4/acc/x", average_x)
             # osc_client.send_message("/e4/acc/y", average_y)
             # osc_client.send_message("/e4/acc/z", average_z)
@@ -81,7 +82,7 @@ def accelerometer_event(data, osc_client, db_handler=None, is_quiet=False):
     #     db_handler.write_to_influx('acc', device_uid, run_tag, timestamp, None, average_x, average_y, average_z)
 
 
-def bvp_event(data, osc_client, db_handler=None, is_quiet=False ):
+def bvp_event(data, osc_clients, db_handler=None, is_quiet=False):
     device_uid, run_tag, timestamp, value = get_data_value(data)
     dt = timestamp - start_time
     if not is_quiet:  
@@ -101,11 +102,11 @@ def bvp_event(data, osc_client, db_handler=None, is_quiet=False ):
                 # print("hr", device_uid, timestamp, hr)
                 print("ibi", device_uid, timestamp, ibi_mean)
 
-            if osc_client:
+            for osc_client in osc_clients:
                 # osc_client.send_message("/e4/hr", hr)
                 osc_client.send_message("/e4/ibi", ibi_mean)
 
-        if osc_client:
+        for osc_client in osc_clients:
             osc_client.send_message("/e4/bvp", bvp)
 
     except:
@@ -115,7 +116,7 @@ def bvp_event(data, osc_client, db_handler=None, is_quiet=False ):
         db_handler.write_to_influx('bvp', device_uid, run_tag, timestamp, bvp)  # or value?
 
 
-def temperature_event(data, osc_client, db_handler=None, is_quiet=False):
+def temperature_event(data, osc_clients, db_handler=None, is_quiet=False):
     device_uid, run_tag, timestamp, value = get_data_value(data)
     dt = timestamp - start_time
     if not is_quiet:
@@ -124,14 +125,14 @@ def temperature_event(data, osc_client, db_handler=None, is_quiet=False):
     # Convert values in the range 25 - 36 to 0.0 - 1.0
     temp = convert_range(value, 25.0, 36.0)
 
-    if osc_client:
+    for osc_client in osc_clients:
         osc_client.send_message("/e4/temp", temp)
 
     if db_handler:
         db_handler.write_to_influx('temp', device_uid, run_tag, timestamp, temp)
 
 
-def gsr_event(data, osc_client, db_handler=None, is_quiet=False):
+def gsr_event(data, osc_clients, db_handler=None, is_quiet=False):
     device_uid, run_tag, timestamp, value = get_data_value(data)
     dt = timestamp - start_time
     if not is_quiet:
@@ -161,24 +162,23 @@ def gsr_event(data, osc_client, db_handler=None, is_quiet=False):
         # Process the difference (e.g., print or send via OSC)
         if not is_quiet:
             print("/e4/gsr", gsr_diff)
-        if osc_client:
+        for osc_client in osc_clients:
             osc_client.send_message("/e4/gsr", gsr_diff)
 
-
-    # if osc_client:
+    # for osc_client in osc_clients:
     #     osc_client.send_message("/e4/gsr", gsr)
 
     if db_handler:
         db_handler.write_to_influx('gsr', device_uid, run_tag, timestamp, gsr)
 
 
-def tag_event(data, osc_client, db_handler=None, is_quiet=False ):
+def tag_event(data, osc_clients, db_handler=None, is_quiet=False):
     device_uid, run_tag, timestamp, value = get_data_value(data)
     dt = timestamp - start_time
     if not is_quiet:
         print("tag", device_uid, timestamp, value)
 
-    if osc_client:
+    for osc_client in osc_clients:
         osc_client.send_message("/e4/tag", value)
 
     if db_handler:

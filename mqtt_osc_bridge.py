@@ -45,21 +45,25 @@ def on_mqtt_message(client, userdata, message, tmp=None):
           print("received message: ", decoded_msg)
     # parse the incoming message into json
     res = json.loads(decoded_msg)
-    osc_client = None
+    osc_clients = []
 
     if osc_stream:
         osc_client = SimpleUDPClient(args.osc_ip, args.osc_port)
+        osc_clients.append(osc_client)
+        if args.osc_ip_2 and args.osc_port_2:
+            osc_client_2 = SimpleUDPClient(args.osc_ip_2, args.osc_port_2)
+            osc_clients.append(osc_client_2)
 
     if res.get('type') == 'temp':
-        events.temperature_event(res, osc_client, influx, args.quiet)
+        events.temperature_event(res, osc_clients, influx, args.quiet)
     if res.get('type') == 'bvp':
-        events.bvp_event(res, osc_client, influx, args.quiet)
+        events.bvp_event(res, osc_clients, influx, args.quiet)
     if res.get('type') == 'acc':
-         events.accelerometer_event(res, osc_client, influx, args.quiet)
+         events.accelerometer_event(res, osc_clients, influx, args.quiet)
     if res.get('type') == 'gsr':
-         events.gsr_event(res, osc_client, influx, args.quiet)
+         events.gsr_event(res, osc_clients, influx, args.quiet)
     if res.get('type') == 'tag':
-         events.tag_event(res, osc_client, influx, args.quiet)
+         events.tag_event(res, osc_clients, influx, args.quiet)
 
 
 def on_mqtt_connect(client, userdata, flags, rc, v5config=None):
@@ -82,6 +86,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Forward E4 app / mqtt messages to OSC.')
     parser.add_argument('--osc-ip', type=str, help='OSC server IP address', default='127.0.0.1')
     parser.add_argument('--osc-port', type=int, help='OSC server port', default=8000)
+    parser.add_argument('--osc-ip-2', type=str, help='OSC 2nd server IP address', default=None)
+    parser.add_argument('--osc-port-2', type=int, help='OSC 2nd server port', default=None)
     parser.add_argument('--mqtt-broker', type=str, help='IP Address of MQTT Broker', default='127.0.0.1')
     parser.add_argument('--mqtt-topic', type=str, help='MQTT Topic', default='e4')
     parser.add_argument('--influx-url', type=str, help='Influx URL', default='http://localhost:8086/')
@@ -118,6 +124,8 @@ if __name__ == '__main__':
     # check if we have to osc stream
     if args.osc_stream:
         print(f'Streaming to osc {args.osc_ip}:{args.osc_port}')
+        if args.osc_ip_2 and args.osc_port_2:
+            print(f'Streaming to secondary osc {args.osc_ip_2}:{args.osc_port_2}')
     osc_stream = args.osc_stream
 
     # connect to Influxdb if --record is given
